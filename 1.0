@@ -1,0 +1,251 @@
+<!DOCTYPE html><html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jogo de Memória</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #111;
+  color: white;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.menu {
+  text-align: center;
+  padding: 20px;
+}
+
+h1 {
+  font-size: 2.5em;
+  margin-bottom: 30px;
+  text-shadow: 0 0 20px cyan;
+}
+
+.btn {
+  display: inline-block;
+  margin: 10px;
+  padding: 15px 30px;
+  font-size: 1.2em;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.easy { background: #4caf50; color: white; }
+.medium { background: #ffc107; color: #111; }
+.hard { background: #f44336; color: white; }
+.night { background: black; color: #0ff; border: 2px solid #0ff; text-shadow: 0 0 10px #0ff; }
+
+.btn:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+#gameContainer {
+  display: none;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+}
+
+.back-button {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  padding: 10px 20px;
+  font-size: 1em;
+  background: #555;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.circle {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #444;
+  box-shadow: 0 0 20px #0ff;
+  border: 3px solid #0ff;
+  transition: transform 0.1s ease, background 0.3s;
+}
+
+.circle.glow {
+  background: #0ff;
+  transform: scale(1.2);
+}
+
+.score-board {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: #0ff;
+  font-size: 1.2em;
+  text-align: right;
+}
+
+.message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2em;
+  color: #0ff;
+  text-shadow: 0 0 10px #0ff;
+  z-index: 5;
+  display: none;
+}
+
+  </style>
+</head>
+<body>
+  <div class="menu" id="menu">
+    <h1>Jogo de Memória</h1>
+    <button class="btn easy" onclick="startGame('easy')">Fácil</button>
+    <button class="btn medium" onclick="startGame('medium')">Médio</button>
+    <button class="btn hard" onclick="startGame('hard')">Difícil</button>
+    <button class="btn night" onclick="startGame('night')">Night</button>
+  </div>  <div id="gameContainer">
+    <button class="back-button" onclick="goBack()">Voltar</button>
+    <div class="score-board">
+      <div>Pontuação: <span id="score">0</span></div>
+      <div>Recorde: <span id="highscore">0</span></div>
+    </div>
+    <div class="message" id="message">Você perdeu!</div>
+  </div><audio id="clickSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_b24d228469.mp3" preload="auto"></audio> <audio id="errorSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_ef73f7cfa1.mp3" preload="auto"></audio> <audio id="successSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_cfa4cf6f9c.mp3" preload="auto"></audio>
+
+  <script>
+    let sequence = [];
+    let playerSequence = [];
+    let score = 0;
+    let highscore = 0;
+    let difficulty = 'easy';
+    let showing = false;
+
+    const config = {
+      easy: { time: 1000, circles: 3 },
+      medium: { time: 700, circles: 4 },
+      hard: { time: 500, circles: 5 },
+      night: { time: 400, circles: 6 }
+    };
+
+    const gameContainer = document.getElementById("gameContainer");
+    const clickSound = document.getElementById("clickSound");
+    const errorSound = document.getElementById("errorSound");
+    const successSound = document.getElementById("successSound");
+    const scoreDisplay = document.getElementById("score");
+    const highscoreDisplay = document.getElementById("highscore");
+    const message = document.getElementById("message");
+
+    function startGame(mode) {
+      difficulty = mode;
+      score = 0;
+      sequence = [];
+      playerSequence = [];
+      updateScore();
+      document.getElementById('menu').style.display = 'none';
+      gameContainer.style.display = 'block';
+      nextRound();
+    }
+
+    function goBack() {
+      gameContainer.innerHTML = document.querySelector(".back-button").outerHTML + document.querySelector(".score-board").outerHTML + '<div class="message" id="message">Você perdeu!</div>';
+      document.getElementById('menu').style.display = 'block';
+      gameContainer.style.display = 'none';
+    }
+
+    function updateScore() {
+      scoreDisplay.textContent = score;
+      highscore = Math.max(score, highscore);
+      highscoreDisplay.textContent = highscore;
+    }
+
+    function nextRound() {
+      playerSequence = [];
+      const num = Math.floor(Math.random() * config[difficulty].circles);
+      sequence.push(num);
+      showSequence();
+    }
+
+    function showSequence() {
+      showing = true;
+      gameContainer.querySelectorAll('.circle').forEach(e => e.remove());
+      const positions = [];
+
+      for (let i = 0; i < config[difficulty].circles; i++) {
+        const circle = document.createElement('div');
+        circle.classList.add('circle');
+        const x = Math.random() * (window.innerWidth - 100);
+        const y = Math.random() * (window.innerHeight - 100);
+        circle.style.left = `${x}px`;
+        circle.style.top = `${y}px`;
+        gameContainer.appendChild(circle);
+        positions.push(circle);
+
+        circle.addEventListener('click', () => handleClick(i));
+        circle.addEventListener('touchstart', () => handleClick(i));
+      }
+
+      sequence.forEach((num, index) => {
+        setTimeout(() => {
+          positions[num].classList.add('glow');
+          clickSound.play();
+          setTimeout(() => positions[num].classList.remove('glow'), config[difficulty].time / 2);
+        }, index * config[difficulty].time);
+      });
+
+      setTimeout(() => {
+        showing = false;
+      }, config[difficulty].time * sequence.length);
+    }
+
+    function handleClick(index) {
+      if (showing) return;
+      clickSound.play();
+      playerSequence.push(index);
+      if (playerSequence[playerSequence.length - 1] !== sequence[playerSequence.length - 1]) {
+        gameOver();
+        return;
+      }
+
+      if (playerSequence.length === sequence.length) {
+        successSound.play();
+        score++;
+        updateScore();
+        animateSuccess();
+        setTimeout(nextRound, 1000);
+      }
+    }
+
+    function gameOver() {
+      errorSound.play();
+      message.style.display = 'block';
+      setTimeout(() => {
+        message.style.display = 'none';
+        startGame(difficulty);
+      }, 2000);
+    }
+
+    function animateSuccess() {
+      gameContainer.style.background = '#0ff';
+      setTimeout(() => {
+        gameContainer.style.background = '#000';
+      }, 300);
+    }
+  </script></body>
+</html>
